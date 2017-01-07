@@ -1,0 +1,440 @@
+{% extends "layout.html" %}
+{% block title %}Index{% endblock %}
+{% block header %}
+  {{ super() }}
+  <style type="text/css">
+    .important { color: #336699; }
+    body {
+      font: 11px sans-serif;
+    }
+
+    form {
+
+    }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .dot {
+      stroke: gray;
+      stroke-width: 1;
+      fill: none;
+    }
+
+    .tooltip {
+      position: absolute;
+      width: 200px;
+      height: 28px;
+      pointer-events: none;
+    }
+    rect.bordered {
+      stroke: #E6E6E6;
+      stroke-width:2px;
+    }
+    text.legend {
+      font-size: 12pt;
+      font-family: Consolas,courier;
+      fill: #000;
+    }
+
+    }
+    text.mono {
+      font-size: 18pt;
+      font-family: Consolas, courier;
+      fill: #000;
+    }
+
+    text.axis-workweek {
+      fill: #000;
+      font-size: 12pt;
+    }
+
+
+    .dataset-button {
+      border-radius: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      color: #fff;
+      position: relative;;
+      display: inline-block;
+      background-color: #273993;
+
+    }
+
+
+  </style>
+{% endblock %}
+{% block content %}
+
+    <h2>
+      Hello, shoppers!
+    </h2>
+    <br/>
+    <p id="P_4">
+
+      Parklot is an app that analyzes parking lot images and gives a reliable count estimate of the number of vacant and full lot spaces. For shoppers like you this means less waiting to park and more shopping!
+      Using state of the art image preprocessing and proprietary sift tuning algorithm, Parklot is able to produce an accuracy score of 97.3%.
+
+    </p>
+
+    <br/><br/>
+
+    <div id="chart"></div>
+    <div id="dataset-picker"></div>
+    <br />
+    <hr />
+    <div class="row">
+    <form >
+      <select id = "sift">
+          <option value="two">9/12/2012</option>
+          <option value="three">9/16/2012</option>
+          <option value="four">9/25/2012</option>
+          <option value="five">9/30/2012</option>
+          <option value="six">10/05/2012</option>
+          <option value="two">10/09/2012</option>
+          <option value="two">10/12/2012</option>
+          <option value="three">10/16/2012</option>
+          <option value="four">10/25/2012</option>
+          <option value="five">11/01/2012</option>
+          <option value="six">11/05/2012</option>
+          <option value="two">11/09/2012</option>
+      </select>
+
+      <!-- <input type="submit"> -->
+    </form>
+    <div id="chart2"></div>
+  </div>
+    <script src="http://d3js.org/d3.v3.js"></script>
+    <script type="text/javascript">
+      var margin = { top: 40, right: 100, bottom: 20, left: 100 },
+          width = 960 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom,
+          gridSize = Math.floor(width / 15),
+          legendElementWidth = 30,
+          buckets = 9,
+          colors = ['#f7fcf0','#e0f3db','#ccebc5','#a8ddb5','#7bccc4','#4eb3d3','#2b8cbe','#0868ac','#084081'], // alternatively colorbrewer.YlGnBu[9]
+          days = ["Mo", "Tu", "We", "Th", "Fr"],
+          times = ["6a", "7a", "8a", "9a", "10a", "11a", "12p", "1p", "2p", "3p", "4p", "5p", "6p"];
+          week_datafiles = [{
+            week: 1,
+            datafile: "static/data/wk1.csv"
+          }, {
+            week: 2,
+            datafile: "static/data/wk2.csv"
+          }, {
+            week: 3,
+            datafile: "static/data/wk3.csv"
+          }, {
+            week: 4,
+            datafile: "static/data/wk4.csv"
+          }];
+
+      var svg = d3.select("#chart").append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", "translate(" + 200 + "," + margin.top + ")");
+
+      var dayLabels = svg.selectAll(".dayLabel")
+          .data(days)
+          .enter().append("text")
+            .text(function (d) { return d; })
+            .attr("x", 0)
+            .attr("y", function (d, i) { return i * gridSize; })
+            .style("text-anchor", "end")
+            .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+            .attr("class", function (d, i) { return ((i >= 0 && i <= 4) ? "dayLabel mono axis axis-workweek" : "dayLabel mono axis axis-workweek"); });
+
+      var timeLabels = svg.selectAll(".timeLabel")
+          .data(times)
+          .enter().append("text")
+            .text(function(d) { return d; })
+            .attr("x", function(d, i) { return i * gridSize; })
+            .attr("y", 0)
+            .style("text-anchor", "middle")
+            .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+            .attr("class", function(d, i) { return ((i >= 7 && i <= 16) ? "timeLabel mono axis axis-workweek" : "timeLabel mono axis axis-workweek"); });
+
+      var heatmapChart = function(csvFile) {
+        d3.csv(csvFile,
+        function(d) {
+          return {
+            day: +d.wkday,
+            hour: +d.bins,
+            value: +d.means
+          };
+        },
+        function(error, data) {
+          if (error) throw error;
+          var colorScale = d3.scale.quantile()
+              .domain([0, 1])
+              .range(colors);
+
+          svg.selectAll(".bins").remove();
+          var cards = svg.selectAll(".bins")
+              .data(data);  // , function(d) {return +':'+d.hour;}
+
+          // cards.append("title");
+          console.log(data)
+          cards.enter().append("rect")
+              .attr("x", function(d) { return (d.hour - 6) * gridSize; }) //d.hour
+              .attr("y", function(d) { return (d.day) * gridSize; })  //d.day
+              .attr("rx", 4)
+              .attr("ry", 4)
+              .attr("class", "bins")
+              .attr("width", gridSize)
+              .attr("height", gridSize)
+
+              // .style("fill", function(d) {console.log(colorScale(d.value)); return colorScale(d.value);});
+
+          cards
+          .style("fill","white")
+          .transition().duration(1000)
+          .attr("stroke","#dbdcdd")
+          .attr("stroke-width",1)
+          .style("fill", function(d) { return colorScale(d.value); });
+
+          // cards.select("title").text(function(d) { return d.value; });
+
+          cards.exit().remove();
+
+
+          var legend = svg.selectAll(".legend")
+              .data([0].concat(colorScale.quantiles()), function(d) { return d; })
+
+
+          legend.enter().append("g")
+              .attr("class", "legend");
+
+
+
+          legend.append("rect")
+            .attr("x", width - 90)
+            .attr("y", function(d, i) { return 30 * i; })
+            .attr("width", 30)
+            .attr("height", gridSize / 2)
+            .style("fill", function(d, i) { return colors[i]; });
+
+          legendFormat = d3.format(".2n")
+          legend.append("text")
+            .attr("class", "legend")
+            .text(function(d) { return "≥ " + legendFormat(d); })
+            .attr("x", width-55)
+            .attr("y", function(d, i) { return 10 + 32 * i; });
+
+          legend.exit().remove();
+
+
+        });
+      };
+
+      heatmapChart(week_datafiles[0].datafile);
+
+      var datasetpicker = d3.select("#dataset-picker").selectAll(".dataset-button")
+        .data(week_datafiles);
+
+      datasetpicker.enter()
+        .append("input")
+        .attr("value", function(d){ return "Week: " + d.week })
+        .attr("type", "button")
+        .attr("class", "dataset-button")
+        .on("click", function(d) {
+          heatmapChart(d.datafile);
+          console.log(d.datafile);
+        });
+    </script>
+
+<!-- Chris's code for D3 spots on image -->
+<script>
+function chrisCode() {
+// setup margin
+
+var margin = {top: 35, right: 20, bottom: 40, left: 20},
+    width = 1090 - margin.left - margin.right,
+    height = 540 - margin.top - margin.bottom;
+
+
+// setup x
+var xValue = function(d) { return d.X;}, // data -> value
+    xScale = d3.scale.linear().range([0, width]), // value -> display
+    xMap = function(d) { return xScale(xValue(d));}, // data -> display
+    xAxis = d3.svg.axis().scale(xScale).orient("bottom");
+
+// setup y
+var yValue = function(d) { return d.Y;}, // data -> value
+    yScale = d3.scale.linear().range([height, 0]), // value -> display
+    yMap = function(d) { return yScale(yValue(d));}, // data -> display
+    yAxis = d3.svg.axis().scale(yScale).orient("left");
+
+// setup fill color
+var cValue = function(d) { return d.Manufacturer;},
+    color = d3.scale.category10();
+
+// add the graph canvas to the body of the webpage
+var svg_image = d3.select("#chart2").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+// add the tooltip area to the webpage
+var tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+    var imgs1 = svg_image.append("g")
+    imgs1.append("svg:image")
+    .attr("xlink:href", "static/2012-10-31_10_08_09.jpg")
+    .attr("x", "0")
+    .attr("y", "0")
+    .attr("width", "1050")
+    .attr("height", "500");
+
+    var imgs2 = svg_image.append("g")
+    imgs2.append("svg:image")
+    .attr("xlink:href", "static/fullparking.jpg")
+    .attr("x", "0")
+    .attr("y", "0")
+    .attr("width", "1050")
+    .attr("height", "500");
+
+
+// load data
+d3.csv("static/data/2012_10_31_10_08_data.csv", function(error, data) {
+
+  // change string (from CSV) into number format
+  data.forEach(function(d) {
+    d.X = +d.X;
+    d.Y = +d.Y;
+   //console.log(d);
+  });
+
+  // don't want dots overlapping axis, so add in buffer to data domain
+  xScale.domain([d3.min(data, xValue), d3.max(data, xValue)]);
+  yScale.domain([d3.min(data, yValue), d3.max(data, yValue)]);
+
+
+
+  // draw dots
+  svg_image.selectAll(".dot")
+      .data(data)
+    .enter().append("circle")
+      .attr("class", "dot")
+      .attr("r", 1.5)
+      .attr("opacity", 0.1)
+      .attr("cx", xMap)
+      .attr("cy", 0)
+      .on("mouseover", function(d) {
+          tooltip.transition()
+               .duration(200)
+               .style("opacity", .9);
+          tooltip.html(d.id + "<br/> (" + xValue(d)
+	        + ", " + yValue(d) + ")")
+               .style("left", (d3.event.pageX + 5) + "px")
+               .style("top", (d3.event.pageY - 28) + "px");
+      })
+      .on("mouseout", function(d) {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+      });
+
+});
+
+function updatePoints() {
+
+
+
+  d3.csv("static/data/2012_10_31_10_08_data.csv", function(error, data) {
+
+
+    data.forEach(function(d) {
+      d.X = +d.X;
+      d.Y = +d.Y;
+     //console.log(d);
+    });
+
+    xScale.domain([d3.min(data, xValue), d3.max(data, xValue)]);
+    yScale.domain([d3.min(data, yValue), d3.max(data, yValue)]);
+
+    var svg_image = d3.select("body").transition();
+
+    d3.selectAll(".dot")
+        .data(data)
+        .transition()
+        .delay(900)
+        .duration(1800)
+        .attr("cx", xMap)
+        .attr("cy", yMap)
+        .attr("r", 14)
+        // .style("fill", "red")
+        // fill based on goo and foo
+    .style("fill",   function colorer(d) {
+      if (d.status == 'False')
+          return 'green';
+      else if (d.status == 'True')
+      return 'red';
+        })
+        .style("opacity", 0.50)
+        .style("stroke", 1)
+
+  });
+}
+
+
+
+// handle on click event
+
+d3.select("#sift")
+  .on('change',
+  function updatePoints() {
+
+
+        imgs2.remove()
+
+
+    d3.csv("static/data/2012_10_31_10_08_data.csv", function(error, data) {
+
+
+      data.forEach(function(d) {
+        d.X = +d.X;
+        d.Y = +d.Y;
+       //console.log(d);
+      });
+
+      xScale.domain([d3.min(data, xValue), d3.max(data, xValue)]);
+      yScale.domain([d3.min(data, yValue), d3.max(data, yValue)]);
+
+      var svg_image = d3.select("body").transition();
+
+      d3.selectAll(".dot")
+          .data(data)
+          .transition()
+          .delay(900)
+          .duration(1800)
+          .attr("cx", xMap)
+          .attr("cy", yMap)
+          .attr("r", 14)
+          // .style("fill", "red")
+          // fill based on goo and foo
+      .style("fill",   function colorer(d) {
+        if (d.status == 'False')
+            return 'green';
+        else if (d.status == 'True')
+        return 'red';
+          })
+          .style("opacity", 0.50)
+          .style("stroke", 1)
+
+    });
+  }
+);
+};
+chrisCode();
+</script>
+{% endblock content %}
