@@ -30,7 +30,7 @@ into a list of words.
 2. **Word2Vec**. I used a pre-trained corpus of words from Stanford's GloVe vectors to run the words through gensim's word2vec
 model. This resulted in a vectors that were 300 x 1 dimensions for every word in the review.  
 3. **Mean** Took the mean across all 300 dimensions for every word and came out with a final 300 x 1 vector for
-every book review.    
+every review.    
 4. **Cosine Similarity**. Compared reviews and new user text using cosine similarity.  
 
 Here is a visual I made that is a great overview of the process!  
@@ -41,5 +41,4 @@ Here is a visual I made that is a great overview of the process!
 ## Discussion  
 
 A user enters in text describing what they are looking for from an Airbnb listing and the recommender pulls up a list of places that have
-reviews that most closely relate to what they searched for. title and the function returns the top 5 books that were closely related based off of
-book summary.   
+reviews that most closely relate to what they searched for.   
